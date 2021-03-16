@@ -38,7 +38,7 @@ struct timendate
 
 ostream & operator << (ostream& os, timendate& a)
 {
-    os << a.day << ":" << a.month << ":" << a.year << " " << a.hour << ":" << a.minute << ":" << a.second;
+    os << a.day << "." << a.month << "." << a.year << " " << a.hour << ":" << a.minute << ":" << a.second;
     return os;
 }
 
