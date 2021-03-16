@@ -414,7 +414,7 @@ int main()
             timendate e, m;
             e = date_time_sum(start, t);
             m = date_time_sum(start, tmin);
-            cout <<"   MAX elevation: " << elev  << " at time: " << m  << " azimuth: " << azimuth(cmin) << endl <<  "   Out of sight:" << e << " azimuth: " << azimuth(k) << endl << endl;
+            cout <<"   MAX elevation: " << elev  << " at time: " << m  << " azimuth: " << azimuth(cmin) << endl <<  "   Out of sight: " << e << " azimuth: " << azimuth(k) << endl << endl;
 
             sight = 0;
             rmin = 2000;
