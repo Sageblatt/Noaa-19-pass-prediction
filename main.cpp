@@ -12,7 +12,7 @@ using namespace std;
 #define earthrot 359
 #define LKlat 55.930171
 #define LKlng 37.518219
-#define range 2468
+#define range 2400//2468
 
 struct coord
 {
@@ -22,7 +22,7 @@ struct coord
 
 ostream & operator << (ostream& os, coord& a)
 {
-    os << a.lat << ", " << a.lng;;
+    os << a.lat << ", " << a.lng;
     return os;
 }
 
@@ -68,7 +68,12 @@ istream & operator >> (istream& is, timendate& a)
 double azimuth(coord& k)
 {
     double az = 0;
-    if ( (k.lat > LKlat && k.lng > LKlng) || (k.lat > LKlat && k.lng < LKlng) )
+    if (k.lat > LKlat && k.lng > LKlng)
+    {
+        az = (-1) * (180.f/3.14) * atan( sin( (3.14/180.f) * (LKlng - k.lng) ) /
+                                 ( (cos((3.14/180.f) * LKlat) * tan( (3.14/180.f) * k.lat) ) - (sin((3.14/180.f) * LKlat) * cos((3.14/180.f) * (LKlng - k.lng)) ) )  );
+    }
+    else if (k.lat > LKlat && k.lng < LKlng)
     {
         az = (-1) * (180.f/3.14) * atan( sin( (3.14/180.f) * (LKlng - k.lng) ) /
                                  ( (cos((3.14/180.f) * LKlat) * tan( (3.14/180.f) * k.lat) ) - (sin((3.14/180.f) * LKlat) * cos((3.14/180.f) * (LKlng - k.lng)) ) )  );
@@ -78,12 +83,20 @@ double azimuth(coord& k)
     {
         az = 180 + (-1) * (180.f/3.14) * atan( sin( (3.14/180.f) * (LKlng - k.lng) ) /
                                  ( (cos((3.14/180.f) * LKlat) * tan( (3.14/180.f) * k.lat) ) - (sin((3.14/180.f) * LKlat) * cos((3.14/180.f) * (LKlng - k.lng)) ) )  );
+        if(az > 0 && az < 180)
+        {
+            az += 180;
+        }
     }
 
     else if (k.lat < LKlat && k.lng > LKlng)
     {
         az = 180 - (180.f/3.14) * atan( sin( (3.14/180.f) * (LKlng - k.lng) ) /
                                  ( (cos((3.14/180.f) * LKlat) * tan( (3.14/180.f) * k.lat) ) - (sin((3.14/180.f) * LKlat) * cos((3.14/180.f) * (LKlng - k.lng)) ) )  );
+        if(az > 180)
+        {
+            az -= 180;
+        }
     }
     else if (k.lat == LKlat)
     {
@@ -105,6 +118,10 @@ double azimuth(coord& k)
     if(az < 0)
     {
         az += 360;
+    }
+    else if(az > 360)
+    {
+        az -= 360;
     }
 
     return az;
@@ -218,8 +235,9 @@ coord get_noaa_coords(double time, double vel, double angle)
     double late = 0;
     double longi = 2.08;
 
+    double eff = 0.000507;
     double alpha = vel * time;
-    double mem = alpha;
+    double mem = alpha - (vel * time * eff);
     int i = 0;
 
     while (mem >  90)
@@ -227,7 +245,6 @@ coord get_noaa_coords(double time, double vel, double angle)
         mem -= 90;
         i++;
     }
-
     alpha = (3.14 * alpha) / 180.f;
     late -= asin( sin(alpha) * sin(angle));
 
@@ -263,10 +280,11 @@ coord get_noaa_coords(double time, double vel, double angle)
     {
         longi -= 360;
     }
-
+    //cout << endl;
     coord out;
+
     out.lat = (-1)*late;
-    out.lng =  (-1) *longi;
+    out.lng =  (-1) *longi * 1;
 
     return out;
 }
@@ -292,7 +310,7 @@ int main()
     cout.precision(4);
 
     cout << "Download TLE? y/n" << endl;
-    char answer;
+    char answer = 'n';
     cin >> answer;
     if (answer == 'y'){
             downloadFile("http://celestrak.com/NORAD/elements/noaa.txt");
@@ -349,11 +367,23 @@ int main()
     cout << endl << "Select the start of the time span" << endl << endl;
     timendate first_date;
     cin >> first_date;
+    /*first_date.day = 20;
+    first_date.month = 3;
+    first_date.year = 2021;
+    first_date.hour = 8;
+    first_date.minute = 58;
+    first_date.second = 2;*/
     cout << endl << "Selected date: " << first_date << endl << endl;
 
     cout << "Select the end of the time span" << endl << endl;
     timendate last_date;
     cin >> last_date;
+    /*last_date.day = 24;
+    last_date.month = 3;
+    last_date.year = 2021;
+    last_date.hour = 8;
+    last_date.minute = 59;
+    last_date.second = 4;*/
     cout << endl << "Selected date: " << last_date << endl << endl;;
 
 
@@ -361,6 +391,8 @@ int main()
 
     ofstream foutput;
     foutput.open("out.csv");
+    ofstream fout;
+    fout.open("outc.csv");
 
     double span = date_difference(start, last_date);
     bool sight = 0;
@@ -375,12 +407,17 @@ int main()
         t += (1.f / 10.f) * 1.f/1440.f;
 
         k = get_noaa_coords(t, angvelocity, inclination);
-        foutput << k << endl;
+        fout << k << endl;
 
         double x = radius * cos((k.lat * 3.14) / 180.f) * cos((k.lng * 3.14) / 180);
         double y = radius * cos((k.lat * 3.14) / 180.f) * sin((k.lng * 3.14) / 180);
         double z = radius * sin((k.lat * 3.14) / 180.f);
         double r = sqrt( pow(x - xLK, 2) + pow(y - yLK, 2) + pow(z - zLK, 2) );
+
+        double lowside = sqrt( (1.f - pow((r / coef2), 2))  / ( ( (0.25 * pow((coef1 - 1), 2) ) / pow(r, 2) ) - ( ( 0.25 * pow((coef1 + 1), 2) ) / pow(coef2, 2) )) );
+        double beta = acos( (lowside * (coef1 - 1)) / (2 * coef2) );
+        double alpha = acos( (lowside * (coef1 + 1)) / (2 * r) );
+        double elev = ((alpha + beta) / 3.14) * 180 - 90;
 
         if (r < range && sight == 0)
         {
@@ -403,18 +440,19 @@ int main()
                 tmin = t;
                 cmin = k;
             }
+            foutput << (3.14 * azimuth(k)) / 180.f << ", " << elev << endl;
         }
 
         else if (r >= range && sight == 1)
         {
-            double lowside = sqrt( (1.f - pow((rmin / coef2), 2))  / ( ( (0.25 * pow((coef1 - 1), 2) ) / pow(rmin, 2) ) - ( ( 0.25 * pow((coef1 + 1), 2) ) / pow(coef2, 2) )) );
-            double alpha = acos( (lowside * (coef1 + 1)) / (2 * rmin) );
-            double beta = acos( (lowside * (coef1 - 1)) / (2 * coef2) );
-            double elev = ((alpha + beta) / 3.14) * 180 - 90;
+            double lowside1 = sqrt( (1.f - pow((rmin / coef2), 2))  / ( ( (0.25 * pow((coef1 - 1), 2) ) / pow(rmin, 2) ) - ( ( 0.25 * pow((coef1 + 1), 2) ) / pow(coef2, 2) )) );
+            double alpha1 = acos( (lowside1 * (coef1 + 1)) / (2 * rmin) );
+            double beta1 = acos( (lowside1 * (coef1 - 1)) / (2 * coef2) );
+            double elev1 = ((alpha1 + beta1) / 3.14) * 180 - 90;
             timendate e, m;
             e = date_time_sum(start, t);
             m = date_time_sum(start, tmin);
-            cout <<"   MAX elevation: " << elev  << " at time: " << m  << " azimuth: " << azimuth(cmin) << endl <<  "   Out of sight: " << e << " azimuth: " << azimuth(k) << endl << endl;
+            cout <<"   MAX elevation: " << elev1  << " at time: " << m  << " azimuth: " << azimuth(cmin) << endl <<  "   Out of sight: " << e << " azimuth: " << azimuth(k) << endl << endl;
 
             sight = 0;
             rmin = 2000;
@@ -426,6 +464,7 @@ int main()
 
     cout << "Use Plot.m to see trajectory in MATLAB" << endl;
 
+    fout.close();
     foutput.close();
     system("pause");
     return 0;
